@@ -2,11 +2,13 @@ package sqlite
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3" // Init sqllite3 driver.
 
+	"gas-rest-api/internal/models"
 	"gas-rest-api/internal/storage"
 )
 
@@ -67,4 +69,27 @@ func (s *Storage) SaveGuitar(manufacturerName string, modelName string, descript
 	}
 
 	return id, nil
+}
+
+func (s *Storage) GetGuitarById(id int64) (*models.Guitar, error) {
+	const op = "storage.sqlite.GetGuitar"
+
+	stmt, err := s.db.Prepare("SELECT manufacturer_name, model_name, description, serial_number FROM guitar WHERE id = ?")
+
+	var resGuitar models.Guitar
+
+	if err != nil {
+		return &resGuitar, fmt.Errorf("%s: prepare statement: %w", op, err)
+	}
+
+	err = stmt.QueryRow(id).Scan(&resGuitar.ManufacturerName, &resGuitar.ModelName, &resGuitar.Description, &resGuitar.SerialNumber)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return &resGuitar, storage.ErrGuitarNotFound
+		}
+		return &resGuitar, fmt.Errorf("%s: execute statement: %w", op, err)
+	}
+
+	return &resGuitar, nil
 }
